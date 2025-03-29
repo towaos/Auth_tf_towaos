@@ -1,0 +1,21 @@
+# .gitignore
+
+# Terraform ローカルファイル
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate.*
+
+# tfvarsファイル（機密情報を含む可能性あり）
+*.tfvars
+*.tfvars.json
+
+# 例外：サンプルtfvarsはコミットしても良い
+!example.tfvars
+
+# CLIの設定ファイル
+.terraformrc
+terraform.rc
+
+.DS_Store
