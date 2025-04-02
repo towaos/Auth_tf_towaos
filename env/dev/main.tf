@@ -30,27 +30,60 @@ module "cognito" {
   }
 }
 
+module "iam" {
+  source = "../../modules/iam"
+  
+  prefix = var.prefix
+  function_name = var.function_name
+    
+  # Cognito認証設定
+  cognito_user_pool_arn = module.cognito.user_pool_arn
+  identity_pool_id = module.cognito.identity_pool_id
+  create_identity_pool = var.create_identity_pool
+  
+  # カスタムポリシー
+  custom_policy = var.custom_policy
+  
+  providers = {
+    aws = aws.main
+  }
+}
+
 module "lambda" {
   source = "../../modules/lambda"
   
   prefix = var.prefix
-  function_name = "${var.prefix}-function-${var.environment}"
-  filename = var.lambda_filename
-  handler = var.lambda_handler
+  project_name = var.project_name
+  
+  # Auth Lambda設定
+  auth_lambda_filename = var.auth_lambda_filename
+  auth_lambda_handler = var.auth_lambda_handler
+  auth_lambda_environment_variables = {
+    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_USER_POOL_CLIENT_ID = module.cognito.client_id
+    ENV = var.environment
+  }
+  
+  # JWT Lambda設定
+  jwt_lambda_filename = var.jwt_lambda_filename
+  jwt_lambda_handler = var.jwt_lambda_handler
+  jwt_lambda_environment_variables = {
+    COGNITO_USER_POOL_ID = module.cognito.user_pool_id
+    COGNITO_USER_POOL_CLIENT_ID = module.cognito.client_id
+    ENV = var.environment
+  }
+  
+  # 共通設定
+  lambda_role_arn = module.iam.lambda_role_arn
   runtime = var.lambda_runtime
   timeout = var.lambda_timeout
   memory_size = var.lambda_memory_size
-  environment_variables = var.lambda_environment_variables
   
-  # API Gateway統合用の設定
-  create_api_gateway = var.create_api_gateway
+  # API Gateway ARNは初期状態では空に（循環依存を避けるため）
+  auth_api_gateway_execution_arn = module.api.auth_api_execution_arn
+  jwt_api_gateway_execution_arn = module.api.jwt_api_execution_arn
   
-  # Cognitoモジュールからの出力を利用
-  cognito_user_pool_arn = module.cognito.user_pool_arn
-  cognito_actions = var.cognito_actions
-  
-  # カスタムポリシーがあれば設定
-  custom_policy = var.lambda_custom_policy
+  tags = local.common_tags
   
   providers = {
     aws = aws.main
@@ -62,42 +95,52 @@ module "api" {
   
   # 基本設定
   prefix = var.prefix
-  create_api_gateway = var.create_api_gateway
+  project_name = var.project_name
   
   # APIルート設定
-  api_gateway_routes = var.api_gateway_routes
-  api_stage_name = var.environment
+  auth_api_gateway_routes = var.auth_api_gateway_routes
+  jwt_api_gateway_routes = var.jwt_api_gateway_routes
+  api_stage_name = var.api_stage_name
   
   # CORS設定
   enable_cors = var.enable_cors
   
-  # Lambda関数との統合（Lambdaのモジュール出力を使用）
-  # APIモジュールで対応する変数名に変更
-  function_name = module.lambda.lambda_function_name
-  lambda_invoke_arn = module.lambda.lambda_invoke_arn
+  # Lambda関数との統合
+  auth_lambda_invoke_arn = module.lambda.auth_lambda_invoke_arn
+  jwt_lambda_invoke_arn = module.lambda.jwt_lambda_invoke_arn
+  
+  tags = local.common_tags
   
   providers = {
     aws = aws.main
   }
 }
-module "iam" {
-  source = "../../modules/iam"
+
+# # Lambda権限の設定（循環依存を回避するため別モジュールで）
+# module "lambda_permissions" {
+#   source = "../../modules/lambda_permissions"
   
-  prefix = var.prefix
-  environment = var.environment
+#   auth_lambda_function_name = module.lambda.auth_lambda_function_name
+#   jwt_lambda_function_name = module.lambda.jwt_lambda_function_name
   
-  # Lambdaロール設定
-  lambda_function_name = module.lambda.lambda_function_name
+#   auth_api_execution_arn = module.api.auth_api_execution_arn
+#   jwt_api_execution_arn = module.api.jwt_api_execution_arn
   
-  # Cognito認証設定
-  cognito_user_pool_arn = module.cognito.user_pool_arn
-  identity_pool_id = module.cognito.identity_pool_id
-  create_identity_pool = var.create_identity_pool
+#   providers = {
+#     aws = aws.main
+#   }
   
-  # カスタムポリシー
-  custom_policies = var.custom_policies
-  
-  providers = {
-    aws = aws.main
+#   depends_on = [
+#     module.lambda,
+#     module.api
+#   ]
+# }
+
+# 共通タグ
+locals {
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
   }
 }

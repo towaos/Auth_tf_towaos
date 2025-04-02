@@ -1,115 +1,136 @@
-# 共通変数
+# AWS設定
 variable "aws_region" {
-  description = "AWSリージョン"
+  description = "AWS リージョン"
   type        = string
   default     = "ap-northeast-1"
 }
 
 variable "aws_profile" {
-  description = "AWS プロファイル名"
+  description = "AWS プロファイル"
   type        = string
   default     = "default"
 }
 
+# 基本設定
 variable "prefix" {
   description = "リソース名のプレフィックス"
   type        = string
   default     = "app"
 }
 
+variable "project_name" {
+  description = "プロジェクト名"
+  type        = string
+}
+
 variable "environment" {
-  description = "デプロイ環境（dev, staging, prod など）"
+  description = "環境名"
   type        = string
   default     = "dev"
 }
 
-# Cognito関連変数
+variable function_name {
+  type        = string
+  default     = ""
+  description = "description"
+}
+
+
+# Cognito設定
 variable "password_policy" {
-  description = "パスワードポリシーの設定"
+  description = "パスワードポリシー"
   type = object({
     minimum_length    = number
     require_lowercase = bool
+    require_uppercase = bool
     require_numbers   = bool
     require_symbols   = bool
-    require_uppercase = bool
   })
   default = {
     minimum_length    = 8
     require_lowercase = true
+    require_uppercase = true
     require_numbers   = true
     require_symbols   = true
-    require_uppercase = true
   }
 }
 
 variable "mfa_configuration" {
-  description = "MFA設定（OFF, OPTIONAL, REQUIRED）"
+  description = "MFA設定"
   type        = string
-  default     = "OPTIONAL"
+  default     = "OFF"
 }
 
 variable "auto_verified_attributes" {
-  description = "自動検証属性のリスト"
+  description = "自動検証する属性"
   type        = list(string)
   default     = ["email"]
 }
 
 variable "schema_attributes" {
-  description = "ユーザー属性のスキーマ"
-  type = list(object({
-    name                = string
-    attribute_data_type = string
-    mutable             = bool
-    required            = bool
-  }))
-  default = [
-    {
-      name                = "email"
-      attribute_data_type = "String"
-      mutable             = true
-      required            = true
-    }
-  ]
+  description = "ユーザープールのスキーマ属性"
+  type        = list(map(string))
+  default     = []
 }
 
 variable "read_attributes" {
-  description = "読み取り可能な属性のリスト"
+  description = "読み取り可能な属性"
   type        = list(string)
-  default     = ["email", "email_verified", "preferred_username"]
+  default     = ["email", "email_verified", "name"]
 }
 
 variable "write_attributes" {
-  description = "書き込み可能な属性のリスト"
+  description = "書き込み可能な属性"
   type        = list(string)
-  default     = ["email", "preferred_username"]
+  default     = ["email", "name"]
 }
 
 variable "callback_urls" {
   description = "コールバックURL"
   type        = list(string)
-  default     = ["http://localhost:3000/callback"]
+  default     = ["https://localhost:3000/callback"]
 }
 
 variable "logout_urls" {
   description = "ログアウトURL"
   type        = list(string)
-  default     = ["http://localhost:3000"]
+  default     = ["https://localhost:3000/logout"]
 }
 
 variable "create_identity_pool" {
-  description = "IDプールを作成するかどうか"
+  description = "アイデンティティプールを作成するかどうか"
   type        = bool
-  default     = false
+  default     = true
 }
 
-# Lambda関連変数
-variable "lambda_filename" {
-  description = "Lambda関数のZIPファイルパス"
+# IAM設定
+variable "custom_policy" {
+  description = "カスタムポリシー"
   type        = string
+  default     = ""
 }
 
-variable "lambda_handler" {
-  description = "Lambda関数のハンドラー"
+# Lambda設定
+variable "auth_lambda_filename" {
+  description = "Auth Lambda関数のZIPファイルパス"
+  type        = string
+  default     = "../../functions/auth_function/func.zip"
+}
+
+variable "auth_lambda_handler" {
+  description = "Auth Lambda関数のハンドラー"
+  type        = string
+  default     = "main"
+}
+
+variable "jwt_lambda_filename" {
+  description = "JWT Lambda関数のZIPファイルパス"
+  type        = string
+  default     = "../../functions/jwt_function/func.zip"
+}
+
+variable "jwt_lambda_handler" {
+  description = "JWT Lambda関数のハンドラー"
   type        = string
   default     = "main"
 }
@@ -132,46 +153,58 @@ variable "lambda_memory_size" {
   default     = 128
 }
 
-variable "lambda_environment_variables" {
-  description = "Lambda関数の環境変数"
-  type        = map(string)
-  default     = {}
-}
-
-variable "lambda_custom_policy" {
-  description = "Lambdaのカスタムポリシー（JSON形式）"
-  type        = string
-  default     = null
-}
-
-# IAM関連変数
-variable "cognito_actions" {
-  description = "Cognitoに対する許可アクション"
-  type        = list(string)
-  default     = null
-}
-
-variable "custom_policies" {
-  description = "追加のカスタムIAMポリシー"
-  type        = map(string)
-  default     = {}
-}
-
-# API Gateway関連変数
-variable "create_api_gateway" {
-  description = "API Gatewayを作成するかどうか"
-  type        = bool
-  default     = false
-}
-
-variable "api_gateway_routes" {
-  description = "API Gatewayのルート設定"
+# API Gateway設定
+variable "auth_api_gateway_routes" {
+  description = "Auth API Gatewayルート設定"
   type = map(object({
-    method              = string
-    authorization       = string
-    parent_resource_id  = string
+    method           = string
+    authorization    = string
+    parent_resource_id = optional(string)
   }))
-  default = {}
+  default = {
+    "auth" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+    "login" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+    "register" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+  }
+}
+
+variable api_stage_name {
+  type        = string
+  default     = ""
+  description = "description"
+}
+
+
+variable "jwt_api_gateway_routes" {
+  description = "JWT API Gatewayルート設定"
+  type = map(object({
+    method           = string
+    authorization    = string
+    parent_resource_id = optional(string)
+  }))
+  default = {
+    "token" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+    "verify" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+    "refresh" = {
+      method = "POST"
+      authorization = "NONE"
+    }
+  }
 }
 
 variable "enable_cors" {

@@ -1,20 +1,29 @@
-# API Gateway出力
-output "api_gateway_id" {
-  description = "API Gateway ID"
-  value       = var.create_api_gateway ? aws_api_gateway_rest_api.api[0].id : null
+output "auth_api_id" {
+  description = "認証API Gateway ID"
+  value       = module.auth_api.api_id
 }
 
-output "api_gateway_root_resource_id" {
-  description = "API Gatewayルートリソース ID"
-  value       = var.create_api_gateway ? aws_api_gateway_rest_api.api[0].root_resource_id : null
+output "auth_api_endpoint" {
+  description = "認証API Gateway エンドポイント"
+  value       = module.auth_api.api_endpoint
 }
 
-output "api_gateway_execution_arn" {
-  description = "API Gateway実行ARN"
-  value       = var.create_api_gateway ? aws_api_gateway_rest_api.api[0].execution_arn : null
+output "auth_api_execution_arn" {
+  description = "認証API Gateway 実行ARN"
+  value       = module.auth_api.execution_arn
 }
 
-output "api_url" {
-  description = "APIのURL"
-  value       = var.create_api_gateway ? "${aws_api_gateway_stage.api_stage[0].invoke_url}" : null
+output "jwt_api_id" {
+  description = "JWT API Gateway ID"
+  value       = module.jwt_api.api_id
+}
+
+output "jwt_api_endpoint" {
+  description = "JWT API Gateway エンドポイント"
+  value       = module.jwt_api.api_endpoint
+}
+
+output "jwt_api_execution_arn" {
+  description = "JWT API Gateway 実行ARN"
+  value       = module.jwt_api.execution_arn
 }

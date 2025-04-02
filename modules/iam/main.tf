@@ -26,7 +26,7 @@ resource "aws_iam_role" "authenticated" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.main[0].id
+            "cognito-identity.amazonaws.com:aud" = var.identity_pool_id
           }
           "ForAnyValue:StringLike" = {
             "cognito-identity.amazonaws.com:amr" = "authenticated"
@@ -119,4 +119,14 @@ resource "aws_iam_role_policy_attachment" "custom_policy_attachment" {
   count      = var.custom_policy != null ? 1 : 0
   role       = aws_iam_role.lambda_role.name
   policy_arn = aws_iam_policy.custom_policy[0].arn
+}
+
+# IDプールとロールの関連付け
+resource "aws_cognito_identity_pool_roles_attachment" "main" {
+  count = var.create_identity_pool ? 1 : 0
+  
+  identity_pool_id = var.identity_pool_id
+  roles = {
+    "authenticated" = aws_iam_role.authenticated[0].arn
+  }
 }
