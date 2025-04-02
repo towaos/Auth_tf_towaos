@@ -9,31 +9,55 @@ terraform {
   }
 }
 
-# Lambda関数
-resource "aws_lambda_function" "lambda" {
-  function_name    = "${var.prefix}-${var.function_name}"
-  filename         = var.filename
-  source_code_hash = filebase64sha256(var.filename)
-  role             = aws_iam_role.lambda_role.arn
-  handler          = var.handler
-  runtime          = var.runtime
-  timeout          = var.timeout
-  memory_size      = var.memory_size
+# Auth Lambda モジュール
+module "auth_lambda" {
+  source = "./auth_lambda"
   
-  environment {
-    variables = var.environment_variables
-  }
-
-  tags = var.tags
+  prefix                = var.prefix
+  function_name         = "${var.project_name}-auth"
+  filename              = var.auth_lambda_filename
+  lambda_role_arn              = var.lambda_role_arn
+  handler               = var.auth_lambda_handler
+  runtime               = var.runtime
+  timeout               = var.timeout
+  memory_size           = var.memory_size
+  environment_variables = var.auth_lambda_environment_variables
+  tags                  = var.tags
 }
 
-# Lambda関数のAPI Gateway呼び出し許可
-resource "aws_lambda_permission" "api_gateway_lambda" {
-  count          = var.create_api_gateway ? 1 : 0
+# JWT Lambda モジュール
+module "jwt_lambda" {
+  source = "./jwt_lambda"
   
-  statement_id   = "AllowExecutionFromAPIGateway"
-  action         = "lambda:InvokeFunction"
-  function_name  = aws_lambda_function.lambda.function_name
-  principal      = "apigateway.amazonaws.com"
-  source_arn     = "${aws_api_gateway_rest_api.api[0].execution_arn}/*/*"
+  prefix                = var.prefix
+  function_name         = "${var.project_name}-jwt"
+  filename              = var.jwt_lambda_filename
+  lambda_role_arn              = var.lambda_role_arn
+  handler               = var.jwt_lambda_handler
+  runtime               = var.runtime
+  timeout               = var.timeout
+  memory_size           = var.memory_size
+  environment_variables = var.jwt_lambda_environment_variables
+  tags                  = var.tags
+}
+
+# API Gateway用の権限設定（必要に応じて）
+resource "aws_lambda_permission" "auth_api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.auth_lambda.lambda_function_name  # function_name から lambda_function_name に修正
+  principal     = "apigateway.amazonaws.com"
+  
+  # API Gatewayからのリクエストのみを許可（後でAPI Gatewayモジュールを作成した場合）
+  source_arn = var.auth_api_gateway_execution_arn
+}
+
+resource "aws_lambda_permission" "jwt_api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.jwt_lambda.lambda_function_name  # function_name から lambda_function_name に修正
+  principal     = "apigateway.amazonaws.com"
+  
+  # API Gatewayからのリクエストのみを許可（後でAPI Gatewayモジュールを作成した場合）
+  source_arn = var.jwt_api_gateway_execution_arn
 }

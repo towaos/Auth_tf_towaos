@@ -45,7 +45,7 @@ variable "password_policy" {
 variable "mfa_configuration" {
   description = "MFA設定（OFF, OPTIONAL, REQUIRED）"
   type        = string
-  default     = "OPTIONAL"
+  default     = "OFF"
 }
 
 variable "auto_verified_attributes" {

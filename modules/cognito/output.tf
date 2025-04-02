@@ -23,8 +23,3 @@ output "identity_pool_id" {
   description = "Cognito Identity Pool ID"
   value       = var.create_identity_pool ? aws_cognito_identity_pool.main[0].id : null
 }
-
-output "authenticated_role_arn" {
-  description = "認証済みユーザー用のIAMロールARN"
-  value       = var.create_identity_pool ? aws_iam_role.authenticated[0].arn : null
-}

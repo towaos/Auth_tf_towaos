@@ -5,13 +5,25 @@ variable "prefix" {
   default     = "app"
 }
 
-variable "tags" {
-  description = "リソースに付与するタグ"
-  type        = map(string)
-  default     = {}
+# IAM関連変数
+variable create_identity_pool {
+  type        = bool
+  default     = false
+  description = "IDプールを作成するかどうか"
 }
 
-# IAM関連変数
+variable identity_pool_id {
+  type        = string
+  default     = ""
+  description = "description"
+}
+
+variable function_name {
+  type        = string
+  default     = ""
+  description = "description"
+}
+
 variable "cognito_user_pool_arn" {
   description = "Cognito User Pool ARN"
   type        = string
@@ -26,6 +38,6 @@ variable "cognito_actions" {
 
 variable "custom_policy" {
   description = "カスタムポリシーJSON"
-  type        = string
-  default     = null
+  type        = any
+  default     = {}
 }

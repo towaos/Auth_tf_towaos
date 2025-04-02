@@ -40,9 +40,6 @@ resource "aws_cognito_user_pool" "main" {
       required            = schema.value.required
     }
   }
-  
-  read_attributes = var.read_attributes
-  write_attributes = var.write_attributes
 }
 
 # Cognitoクライアントアプリの設定
@@ -69,6 +66,10 @@ resource "aws_cognito_user_pool_client" "client" {
   logout_urls                          = var.logout_urls
   supported_identity_providers         = var.supported_identity_providers
   prevent_user_existence_errors        = var.prevent_user_existence_errors
+
+  read_attributes = var.read_attributes
+  write_attributes = var.write_attributes
+
 }
 
 # IDプールの作成（オプション）
@@ -85,13 +86,3 @@ resource "aws_cognito_identity_pool" "main" {
   }
 }
 
-# IDプールとロールの関連付け
-resource "aws_cognito_identity_pool_roles_attachment" "main" {
-  count = var.create_identity_pool ? 1 : 0
-  
-  identity_pool_id = aws_cognito_identity_pool.main[0].id
-  
-  roles = {
-    "authenticated" = aws_iam_role.authenticated[0].arn
-  }
-}
