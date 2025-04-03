@@ -39,7 +39,7 @@ resource "aws_iam_role" "authenticated" {
 
 # Lambda用IAMロール
 resource "aws_iam_role" "lambda_role" {
-  name = "${var.prefix}_${var.function_name}_role"
+  name = "${var.prefix}-${var.function_name}-role"
   
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -57,7 +57,7 @@ resource "aws_iam_role" "lambda_role" {
 
 # Lambda基本実行ポリシー
 resource "aws_iam_policy" "lambda_basic_policy" {
-  name        = "${var.prefix}_${var.function_name}_basic_policy"
+  name        = "${var.prefix}-${var.function_name}-basic_policy"
   description = "基本的なLambda実行権限"
   
   policy = jsonencode({
@@ -79,7 +79,7 @@ resource "aws_iam_policy" "lambda_basic_policy" {
 # Cognito操作用ポリシー
 resource "aws_iam_policy" "cognito_policy" {
   count       = var.cognito_actions != null ? 1 : 0
-  name        = "${var.prefix}_${var.function_name}_cognito_policy"
+  name        = "${var.prefix}-${var.function_name}-cognito_policy"
   description = "Cognito操作権限"
   
   policy = jsonencode({
@@ -97,7 +97,7 @@ resource "aws_iam_policy" "cognito_policy" {
 # カスタムポリシー
 resource "aws_iam_policy" "custom_policy" {
   count       = var.custom_policy != null ? 1 : 0
-  name        = "${var.prefix}_${var.function_name}_custom_policy"
+  name        = "${var.prefix}-${var.function_name}-custom_policy"
   description = "カスタムポリシー"
   
   policy = var.custom_policy

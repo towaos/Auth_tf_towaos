@@ -31,7 +31,7 @@ resource "aws_api_gateway_integration" "api_integrations" {
   http_method             = aws_api_gateway_method.api_methods[each.key].http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = var.lambda_invoke_arn
+  uri                     = each.value.lambda_invoke_arn
 }
 
 # CORSサポート

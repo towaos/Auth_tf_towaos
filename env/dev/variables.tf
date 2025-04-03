@@ -153,58 +153,10 @@ variable "lambda_memory_size" {
   default     = 128
 }
 
-# API Gateway設定
-variable "auth_api_gateway_routes" {
-  description = "Auth API Gatewayルート設定"
-  type = map(object({
-    method           = string
-    authorization    = string
-    parent_resource_id = optional(string)
-  }))
-  default = {
-    "auth" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-    "login" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-    "register" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-  }
-}
-
 variable api_stage_name {
   type        = string
   default     = ""
   description = "description"
-}
-
-
-variable "jwt_api_gateway_routes" {
-  description = "JWT API Gatewayルート設定"
-  type = map(object({
-    method           = string
-    authorization    = string
-    parent_resource_id = optional(string)
-  }))
-  default = {
-    "token" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-    "verify" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-    "refresh" = {
-      method = "POST"
-      authorization = "NONE"
-    }
-  }
 }
 
 variable "enable_cors" {

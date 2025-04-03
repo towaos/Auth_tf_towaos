@@ -67,14 +67,8 @@ variable "jwt_lambda_environment_variables" {
 }
 
 # API Gateway ARN（API Gatewayモジュールを作成した場合に使用）
-variable "auth_api_gateway_execution_arn" {
+variable "auth_api_execution_arn" {
   description = "Auth API Gateway実行ARN"
-  type        = string
-  default     = ""
-}
-
-variable "jwt_api_gateway_execution_arn" {
-  description = "JWT API Gateway実行ARN"
   type        = string
   default     = ""
 }

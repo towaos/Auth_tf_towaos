@@ -8,8 +8,8 @@ module "cognito" {
   source = "../../modules/cognito"
   
   prefix        = var.prefix
-  user_pool_name = "${var.prefix}-user-pool-${var.environment}"
-  client_name   = "${var.prefix}-client-${var.environment}"
+  user_pool_name = "${var.prefix}-${var.project_name}-user-pool"
+  client_name   = "${var.prefix}-${var.project_name}-client"
   
   password_policy = var.password_policy
   mfa_configuration = var.mfa_configuration
@@ -23,7 +23,7 @@ module "cognito" {
   logout_urls = var.logout_urls
   
   create_identity_pool = var.create_identity_pool
-  identity_pool_name = "${var.prefix}-identity-pool-${var.environment}"
+  identity_pool_name = "${var.prefix}-${var.project_name}-identity-pool"
 
   providers = {
     aws = aws.main
@@ -80,8 +80,7 @@ module "lambda" {
   memory_size = var.lambda_memory_size
   
   # API Gateway ARNは初期状態では空に（循環依存を避けるため）
-  auth_api_gateway_execution_arn = module.api.auth_api_execution_arn
-  jwt_api_gateway_execution_arn = module.api.jwt_api_execution_arn
+  auth_api_execution_arn = module.api.auth_api_execution_arn
   
   tags = local.common_tags
   
@@ -98,17 +97,23 @@ module "api" {
   project_name = var.project_name
   
   # APIルート設定
-  auth_api_gateway_routes = var.auth_api_gateway_routes
-  jwt_api_gateway_routes = var.jwt_api_gateway_routes
+  auth_api_gateway_routes = {
+    "auth" = {
+      method           = "POST"
+      authorization    = "NONE"
+      lambda_invoke_arn = module.lambda.auth_lambda_invoke_arn
+    },
+    "jwt-validation" = {
+      method           = "POST"
+      authorization    = "NONE"
+      lambda_invoke_arn = module.lambda.jwt_lambda_invoke_arn
+    }
+  }
   api_stage_name = var.api_stage_name
-  
+
   # CORS設定
   enable_cors = var.enable_cors
-  
-  # Lambda関数との統合
-  auth_lambda_invoke_arn = module.lambda.auth_lambda_invoke_arn
-  jwt_lambda_invoke_arn = module.lambda.jwt_lambda_invoke_arn
-  
+    
   tags = local.common_tags
   
   providers = {

@@ -41,23 +41,24 @@ module "jwt_lambda" {
   tags                  = var.tags
 }
 
-# API Gateway用の権限設定（必要に応じて）
-resource "aws_lambda_permission" "auth_api_gateway" {
-  statement_id  = "AllowAPIGatewayInvoke"
+# auth_lambdaへの権限設定
+resource "aws_lambda_permission" "auth_lambda_permission" {
+  statement_id  = "AllowAPIGatewayInvokeAuth"
   action        = "lambda:InvokeFunction"
-  function_name = module.auth_lambda.lambda_function_name  # function_name から lambda_function_name に修正
+  function_name = module.auth_lambda.lambda_function_name
   principal     = "apigateway.amazonaws.com"
   
-  # API Gatewayからのリクエストのみを許可（後でAPI Gatewayモジュールを作成した場合）
-  source_arn = var.auth_api_gateway_execution_arn
+  # API Gatewayからのリクエストのみを許可
+  source_arn = "${var.auth_api_execution_arn}/*/POST/auth"
 }
 
-resource "aws_lambda_permission" "jwt_api_gateway" {
-  statement_id  = "AllowAPIGatewayInvoke"
+# jwt_lambdaへの権限設定
+resource "aws_lambda_permission" "jwt_lambda_permission" {
+  statement_id  = "AllowAPIGatewayInvokeJwt"
   action        = "lambda:InvokeFunction"
-  function_name = module.jwt_lambda.lambda_function_name  # function_name から lambda_function_name に修正
+  function_name = module.jwt_lambda.lambda_function_name
   principal     = "apigateway.amazonaws.com"
   
-  # API Gatewayからのリクエストのみを許可（後でAPI Gatewayモジュールを作成した場合）
-  source_arn = var.jwt_api_gateway_execution_arn
+  # API Gatewayからのリクエストのみを許可
+  source_arn = "${var.auth_api_execution_arn}/*/POST/jwt-validation"
 }

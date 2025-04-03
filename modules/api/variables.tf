@@ -14,18 +14,10 @@ variable project_name {
 variable "auth_api_gateway_routes" {
   description = "Auth API Gatewayルート設定"
   type = map(object({
-    method           = string
-    authorization    = string
-    parent_resource_id = optional(string)
-  }))
-}
-
-variable "jwt_api_gateway_routes" {
-  description = "JWT API Gatewayルート設定"
-  type = map(object({
-    method           = string
-    authorization    = string
-    parent_resource_id = optional(string)
+    method              = string
+    authorization       = string
+    parent_resource_id  = optional(string)
+    lambda_invoke_arn   = string
   }))
 }
 
@@ -50,12 +42,6 @@ variable "tags" {
 }
 
 variable auth_lambda_invoke_arn {
-  type        = string
-  default     = ""
-  description = "description"
-}
-
-variable jwt_lambda_invoke_arn {
   type        = string
   default     = ""
   description = "description"

@@ -57,9 +57,3 @@ variable lambda_role_arn {
   default     = ""
   description = "description"
 }
-
-variable api_gateway_execution_arn {
-  type        = string
-  default     = ""
-  description = "description"
-}

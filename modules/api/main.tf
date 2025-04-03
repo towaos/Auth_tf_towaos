@@ -14,21 +14,9 @@ module "auth_api" {
   source = "./auth_api"
   
   prefix            = var.prefix
-  api_name          = "${var.project_name}-auth-api"
+  api_name          = "${var.project_name}-api"
   api_gateway_routes = var.auth_api_gateway_routes
   lambda_invoke_arn = var.auth_lambda_invoke_arn
-  enable_cors       = var.enable_cors
-  api_stage_name    = var.api_stage_name
-}
-
-# JWT API モジュール
-module "jwt_api" {
-  source = "./jwt_api"
-  
-  prefix            = var.prefix
-  api_name          = "${var.project_name}-jwt-api"
-  api_gateway_routes = var.jwt_api_gateway_routes
-  lambda_invoke_arn = var.jwt_lambda_invoke_arn
   enable_cors       = var.enable_cors
   api_stage_name    = var.api_stage_name
 }

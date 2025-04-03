@@ -9,11 +9,12 @@ variable "api_name" {
 }
 
 variable "api_gateway_routes" {
-  description = "API Gatewayルート設定"
+  description = "Auth API Gatewayルート設定"
   type = map(object({
-    method           = string
-    authorization    = string
-    parent_resource_id = optional(string)
+    method              = string
+    authorization       = string
+    parent_resource_id  = optional(string)
+    lambda_invoke_arn   = string
   }))
 }
 
