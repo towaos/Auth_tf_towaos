@@ -22,6 +22,15 @@ var (
 	cognitoClientID   = os.Getenv("COGNITO_CLIENT_ID")
 )
 
+// 共通のCORSヘッダー
+var corsHeaders = map[string]string{
+	"Content-Type":                     "application/json",
+	"Access-Control-Allow-Origin":      "*",
+	"Access-Control-Allow-Headers":     "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+	"Access-Control-Allow-Methods":     "OPTIONS,POST,GET",
+	"Access-Control-Allow-Credentials": "true",
+}
+
 // 環境変数の検証
 func validateEnvironment() error {
 	if cognitoUserPoolID == "" {
@@ -35,17 +44,20 @@ func validateEnvironment() error {
 
 // リクエスト構造体
 type SignUpRequest struct {
+	Action   string `json:"action"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Email    string `json:"email"`
 }
 
 type SignInRequest struct {
+	Action   string `json:"action"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
 type VerifyRequest struct {
+	Action   string `json:"action"`
 	Username string `json:"username"`
 	Code     string `json:"code"`
 }
@@ -149,94 +161,205 @@ func handleSignIn(ctx context.Context, req SignInRequest) (*AuthResponse, error)
 
 // Lambda ハンドラー関数
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// OPTIONSリクエスト（プリフライトリクエスト）の処理
+	if request.HTTPMethod == "OPTIONS" {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 200,
+			Headers:    corsHeaders,
+			Body:       "",
+		}, nil
+	}
+
 	// 環境変数を検証
 	if err := validateEnvironment(); err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
+			Headers:    corsHeaders,
 			Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
 		}, nil
 	}
 
-	// パスによって処理を分岐
-	switch request.Path {
-	case "/auth/signup":
-		var signUpReq SignUpRequest
-		if err := json.Unmarshal([]byte(request.Body), &signUpReq); err != nil {
+	// リクエストの内容を解析して処理を分岐
+	if request.Path == "/auth" {
+		// リクエストボディを解析
+		var requestBody map[string]interface{}
+		if err := json.Unmarshal([]byte(request.Body), &requestBody); err != nil {
 			return events.APIGatewayProxyResponse{
 				StatusCode: 400,
+				Headers:    corsHeaders,
 				Body:       `{"error":"リクエスト形式が不正です"}`,
 			}, nil
 		}
 
-		result, err := handleSignUp(ctx, signUpReq)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"error":"内部サーバーエラー"}`,
-			}, nil
+		// アクション（または操作の種類）を判断
+		action, actionExists := requestBody["action"].(string)
+
+		// アクションが明示的に指定されている場合
+		if actionExists {
+			switch action {
+			case "signup":
+				var signUpReq SignUpRequest
+				if err := json.Unmarshal([]byte(request.Body), &signUpReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleSignUp(ctx, signUpReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+
+			case "signin":
+				var signInReq SignInRequest
+				if err := json.Unmarshal([]byte(request.Body), &signInReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleSignIn(ctx, signInReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+
+			case "verify":
+				var verifyReq VerifyRequest
+				if err := json.Unmarshal([]byte(request.Body), &verifyReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleVerify(ctx, verifyReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+
+			default:
+				return events.APIGatewayProxyResponse{
+					StatusCode: 400,
+					Headers:    corsHeaders,
+					Body:       `{"error":"不明なアクションです"}`,
+				}, nil
+			}
+		} else {
+			// アクションが指定されていない場合、フィールドから推測
+			if _, hasEmail := requestBody["email"]; hasEmail {
+				// メールフィールドがあればサインアップと判断
+				var signUpReq SignUpRequest
+				if err := json.Unmarshal([]byte(request.Body), &signUpReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleSignUp(ctx, signUpReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+			} else if _, hasCode := requestBody["code"]; hasCode {
+				// コードフィールドがあれば確認と判断
+				var verifyReq VerifyRequest
+				if err := json.Unmarshal([]byte(request.Body), &verifyReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleVerify(ctx, verifyReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+			} else {
+				// それ以外はサインインと判断
+				var signInReq SignInRequest
+				if err := json.Unmarshal([]byte(request.Body), &signInReq); err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 400,
+						Headers:    corsHeaders,
+						Body:       `{"error":"リクエスト形式が不正です"}`,
+					}, nil
+				}
+				result, err := handleSignIn(ctx, signInReq)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: 500,
+						Headers:    corsHeaders,
+						Body:       `{"error":"内部サーバーエラー"}`,
+					}, nil
+				}
+				responseBody, _ := json.Marshal(result)
+				return events.APIGatewayProxyResponse{
+					StatusCode: 200,
+					Headers:    corsHeaders,
+					Body:       string(responseBody),
+				}, nil
+			}
 		}
-
-		responseBody, _ := json.Marshal(result)
-		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       string(responseBody),
-		}, nil
-
-	case "/auth/verify":
-		var verifyReq VerifyRequest
-		if err := json.Unmarshal([]byte(request.Body), &verifyReq); err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: 400,
-				Body:       `{"error":"リクエスト形式が不正です"}`,
-			}, nil
-		}
-
-		result, err := handleVerify(ctx, verifyReq)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"error":"内部サーバーエラー"}`,
-			}, nil
-		}
-
-		responseBody, _ := json.Marshal(result)
-		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       string(responseBody),
-		}, nil
-
-	case "/auth/signin":
-		var signInReq SignInRequest
-		if err := json.Unmarshal([]byte(request.Body), &signInReq); err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: 400,
-				Body:       `{"error":"リクエスト形式が不正です"}`,
-			}, nil
-		}
-
-		result, err := handleSignIn(ctx, signInReq)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: 500,
-				Body:       `{"error":"内部サーバーエラー"}`,
-			}, nil
-		}
-
-		responseBody, _ := json.Marshal(result)
-		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       string(responseBody),
-		}, nil
-
-	default:
-		return events.APIGatewayProxyResponse{
-			StatusCode: 404,
-			Body:       `{"error":"リクエストされたエンドポイントは存在しません"}`,
-		}, nil
 	}
+
+	// 他のパスの場合は404を返す
+	return events.APIGatewayProxyResponse{
+		StatusCode: 404,
+		Headers:    corsHeaders,
+		Body:       `{"error":"リクエストされたエンドポイントは存在しません"}`,
+	}, nil
 }
 
 // JWT検証用のハンドラー（他のマイクロサービスでも使える共通ライブラリとして）
