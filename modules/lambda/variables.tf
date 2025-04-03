@@ -16,13 +16,13 @@ variable "runtime" {
 }
 
 variable "timeout" {
-  description = "Lambda関数のタイムアウト（秒）"
+  description = "Lambda関数のタイムアウト(秒)"
   type        = number
   default     = 30
 }
 
 variable "memory_size" {
-  description = "Lambda関数のメモリサイズ（MB）"
+  description = "Lambda関数のメモリサイズ(MB)"
   type        = number
   default     = 128
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -16,9 +17,21 @@ import (
 
 // 環境変数から設定を取得
 var (
-	userPoolID     = os.Getenv("COGNITO_USER_POOL_ID")
-	userPoolClient = os.Getenv("COGNITO_USER_POOL_CLIENT_ID")
+	cognitoRegion     = os.Getenv("COGNITO_REGION")
+	cognitoUserPoolID = os.Getenv("COGNITO_USER_POOL_ID")
+	cognitoClientID   = os.Getenv("COGNITO_CLIENT_ID")
 )
+
+// 環境変数の検証
+func validateEnvironment() error {
+	if cognitoUserPoolID == "" {
+		return errors.New("環境変数 COGNITO_USER_POOL_ID が設定されていません")
+	}
+	if cognitoClientID == "" {
+		return errors.New("環境変数 COGNITO_CLIENT_ID が設定されていません")
+	}
+	return nil
+}
 
 // リクエスト構造体
 type SignUpRequest struct {
@@ -46,7 +59,7 @@ type AuthResponse struct {
 
 // Cognitoクライアントの初期化
 func initCognitoClient() (*cognito.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-northeast-1"))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cognitoRegion))
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +83,7 @@ func handleSignUp(ctx context.Context, req SignUpRequest) (*AuthResponse, error)
 
 	// Cognitoにサインアップリクエスト
 	_, err = client.SignUp(ctx, &cognito.SignUpInput{
-		ClientId:       aws.String(userPoolClient),
+		ClientId:       aws.String(cognitoClientID),
 		Username:       aws.String(req.Username),
 		Password:       aws.String(req.Password),
 		UserAttributes: userAttrs,
@@ -91,7 +104,7 @@ func handleVerify(ctx context.Context, req VerifyRequest) (*AuthResponse, error)
 	}
 
 	_, err = client.ConfirmSignUp(ctx, &cognito.ConfirmSignUpInput{
-		ClientId:         aws.String(userPoolClient),
+		ClientId:         aws.String(cognitoClientID),
 		Username:         aws.String(req.Username),
 		ConfirmationCode: aws.String(req.Code),
 	})
@@ -119,7 +132,7 @@ func handleSignIn(ctx context.Context, req SignInRequest) (*AuthResponse, error)
 	// Cognitoにログインリクエスト
 	resp, err := client.InitiateAuth(ctx, &cognito.InitiateAuthInput{
 		AuthFlow:       types.AuthFlowTypeUserPasswordAuth,
-		ClientId:       aws.String(userPoolClient),
+		ClientId:       aws.String(cognitoClientID),
 		AuthParameters: authParams,
 	})
 
@@ -136,6 +149,14 @@ func handleSignIn(ctx context.Context, req SignInRequest) (*AuthResponse, error)
 
 // Lambda ハンドラー関数
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// 環境変数を検証
+	if err := validateEnvironment(); err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
+		}, nil
+	}
+
 	// パスによって処理を分岐
 	switch request.Path {
 	case "/auth/signup":

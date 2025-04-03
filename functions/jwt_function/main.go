@@ -1,4 +1,4 @@
-package auth
+package main
 
 import (
 	"context"
@@ -10,16 +10,20 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/golang-jwt/jwt/v4"
 )
 
 // 環境変数から設定取得用の変数
 var (
-	cognitoRegion     = "ap-northeast-1" // 環境変数から取得するように変更可能
-	cognitoUserPoolID = ""               // 環境変数から取得する必要あり
+	cognitoRegion     = os.Getenv("COGNITO_REGION")
+	cognitoUserPoolID = os.Getenv("COGNITO_USER_POOL_ID")
+	cognitoClientID   = os.Getenv("COGNITO_CLIENT_ID")
 )
 
 // JWKSレスポンス構造体
@@ -47,14 +51,25 @@ type TokenValidator struct {
 }
 
 // 新しいトークン検証機能を作成
-func NewTokenValidator(region, userPoolID, clientID string) *TokenValidator {
+func NewTokenValidator(region, userPoolID, clientID string) (*TokenValidator, error) {
+	// パラメータの検証
+	if region == "" {
+		return nil, errors.New("リージョンが指定されていません")
+	}
+	if userPoolID == "" {
+		return nil, errors.New("ユーザープールIDが指定されていません")
+	}
+	if clientID == "" {
+		return nil, errors.New("クライアントIDが指定されていません")
+	}
+
 	jwksURL := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s/.well-known/jwks.json", region, userPoolID)
 	return &TokenValidator{
 		JwksURL:    jwksURL,
 		UserPoolID: userPoolID,
 		ClientID:   clientID,
 		jwksCache:  make(map[string]*rsa.PublicKey),
-	}
+	}, nil
 }
 
 // JWKSから公開鍵を取得
@@ -183,7 +198,15 @@ func (v *TokenValidator) ValidateToken(tokenString string) (*jwt.Token, error) {
 
 // API Gateway Lambda オーソライザー用の関数
 func ValidateTokenForAPIGateway(ctx context.Context, token string, userPoolID, clientID string) (map[string]interface{}, error) {
-	validator := NewTokenValidator(cognitoRegion, userPoolID, clientID)
+	if cognitoRegion == "" {
+		return nil, errors.New("環境変数 COGNITO_REGION が設定されていません")
+	}
+
+	validator, err := NewTokenValidator(cognitoRegion, userPoolID, clientID)
+	if err != nil {
+		return nil, err
+	}
+
 	jwtToken, err := validator.ValidateToken(token)
 	if err != nil {
 		return nil, err
@@ -192,4 +215,67 @@ func ValidateTokenForAPIGateway(ctx context.Context, token string, userPoolID, c
 	// 検証成功時にはクレームを返却
 	claims, _ := jwtToken.Claims.(jwt.MapClaims)
 	return claims, nil
+}
+
+// Lambda用リクエストハンドラ
+func handleRequest(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
+	// トークンを取得（「Bearer 」部分を削除）
+	token := strings.TrimPrefix(event.AuthorizationToken, "Bearer ")
+
+	// トークン検証
+	claims, err := ValidateTokenForAPIGateway(ctx, token, cognitoUserPoolID, cognitoClientID)
+	if err != nil {
+		return events.APIGatewayCustomAuthorizerResponse{}, err
+	}
+
+	// ユーザー識別子を取得
+	sub, _ := claims["sub"].(string)
+
+	// ポリシードキュメントを生成
+	policyDocument := generatePolicy(sub, "Allow", event.MethodArn)
+
+	// コンテキストに追加情報を設定
+	context := map[string]interface{}{
+		"sub": sub,
+	}
+
+	// カスタム属性があれば追加
+	if username, ok := claims["cognito:username"].(string); ok {
+		context["username"] = username
+	}
+
+	if email, ok := claims["email"].(string); ok {
+		context["email"] = email
+	}
+
+	// レスポンスを作成
+	authResponse := events.APIGatewayCustomAuthorizerResponse{
+		PrincipalID:    sub,
+		PolicyDocument: policyDocument,
+		Context:        context,
+	}
+
+	return authResponse, nil
+}
+
+// IAMポリシードキュメントを生成
+func generatePolicy(principalID, effect, resource string) events.APIGatewayCustomAuthorizerPolicy {
+	// ベースとなるポリシーを作成
+	policyDocument := events.APIGatewayCustomAuthorizerPolicy{
+		Version: "2012-10-17",
+		Statement: []events.IAMPolicyStatement{
+			{
+				Action:   []string{"execute-api:Invoke"},
+				Effect:   effect,
+				Resource: []string{resource},
+			},
+		},
+	}
+
+	return policyDocument
+}
+
+// main関数
+func main() {
+	lambda.Start(handleRequest)
 }
