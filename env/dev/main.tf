@@ -59,18 +59,18 @@ module "lambda" {
   auth_lambda_filename = var.auth_lambda_filename
   auth_lambda_handler = var.auth_lambda_handler
   auth_lambda_environment_variables = {
+    COGNITO_REGION = var.aws_region
     COGNITO_USER_POOL_ID = module.cognito.user_pool_id
-    COGNITO_USER_POOL_CLIENT_ID = module.cognito.client_id
-    ENV = var.environment
+    COGNITO_CLIENT_ID = module.cognito.client_id
   }
   
   # JWT Lambda設定
   jwt_lambda_filename = var.jwt_lambda_filename
   jwt_lambda_handler = var.jwt_lambda_handler
   jwt_lambda_environment_variables = {
+    COGNITO_REGION = var.aws_region
     COGNITO_USER_POOL_ID = module.cognito.user_pool_id
-    COGNITO_USER_POOL_CLIENT_ID = module.cognito.client_id
-    ENV = var.environment
+    COGNITO_CLIENT_ID = module.cognito.client_id
   }
   
   # 共通設定
